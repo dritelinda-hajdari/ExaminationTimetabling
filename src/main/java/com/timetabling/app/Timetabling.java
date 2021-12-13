@@ -1,6 +1,7 @@
 package com.timetabling.app;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,8 +13,10 @@ import org.json.simple.parser.ParseException;
 import org.springframework.util.CollectionUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.timetabling.app.model.Assignment;
 import com.timetabling.app.model.Course;
 import com.timetabling.app.model.Curricula;
+import com.timetabling.app.model.Event;
 import com.timetabling.app.model.Exam;
 import com.timetabling.app.model.Instance;
 import com.timetabling.app.model.Period;
@@ -26,27 +29,32 @@ public class Timetabling {
 	private static Map<Period, List<Room>> periodRoomRelation = new HashMap<Period, List<Room>>();
 	
 	public static void main(String[] args) throws ParseException {
-		
-		Instance inst =  JSONUtils.convert(JSONUtils.getFileData("toy.json"), new TypeReference<Instance>(){});
+		List<Assignment> assignments = new ArrayList<>();
+		Instance inst =  JSONUtils.convert(JSONUtils.getFileData("D1-1-16.json"), new TypeReference<Instance>(){});
 		//Map<Course, List<Room>> courseRoomRelation = new HashMap<Course, List<Room>>();
 		List<Course> courses = inst.getCourses();
 		List<Room> rooms = inst.getRooms();
 		List<Curricula> curriculas = inst.getCurricula();
 		List<Exam> exams = new ArrayList<Exam>();
 		periodRoomRelation = getPeriods(inst.getPeriods(), inst.getSlotsPerDay(), rooms);
-		curriculas.stream().forEach(curricula -> {
-			List<String> primaryCourses = curricula.getPrimaryCourses();
-			List<String> secondaryCourses = curricula.getSecondaryCourses();
-			checkingConstraints(inst, courses, exams, curricula, primaryCourses);
-			checkingConstraints(inst, courses, exams, curricula, secondaryCourses);
-		});
-		Solution solution = new Solution.Builder().exams(exams).build();
-		System.out.println( JSONUtils.convert(solution));
+		for (int i = 0; i < 10; i++) {
+			curriculas.stream().forEach(curricula -> {
+				List<String> primaryCourses = curricula.getPrimaryCourses();
+				List<String> secondaryCourses = curricula.getSecondaryCourses();
+				checkingConstraints(inst, courses, exams, curricula, primaryCourses, assignments);
+				checkingConstraints(inst, courses, exams, curricula, secondaryCourses, assignments);
+			});
+			Solution solution = new Solution.Builder().assignments(assignments).build();
+			JSONUtils.saveFile(JSONUtils.convert(solution), "Assignments.json");
+			System.out.println(JSONUtils.convert(solution));
+			solution.mutation();
+		}
 		
 	}
 
-	private static void checkingConstraints(Instance inst, List<Course> courses, List<Exam> exams, Curricula curricula,
-			List<String> curricumCourses) {
+	private static List<Assignment> checkingConstraints(Instance inst, List<Course> courses, List<Exam> exams, Curricula curricula,
+			List<String> curricumCourses, List<Assignment> assignments) {
+		Collections.shuffle(curricumCourses);
 		curricumCourses.stream().forEach(prCourse -> {
 			Optional<Course> course = courses.stream().filter(cr -> cr.getCourse().equalsIgnoreCase(prCourse)).findAny();
 			Entry<Period, List<Room>> periodAndCourseRoom = getRequestedCourseRooms(course.get(), exams, inst);
@@ -55,9 +63,18 @@ public class Timetabling {
 				Exam exam = new Exam.Builder().course(course.get()).rooms(selectedPeriod)
 						.period(periodAndCourseRoom.getKey()).curriculum(curricula.getCurriculum()).build();
 				exams.add(exam);
+				List<Event> events = new ArrayList<>();
+				selectedPeriod.stream().forEach(period -> {
+					Event event = new Event.Builder().period(periodAndCourseRoom.getKey().getId()).room(period.getRoom()).build();
+					events.add(event);
+				});
+				Assignment assignment = new Assignment.Builder().course(exam.getCourse().getCourse())
+						.events(events).build();
+				assignments.add(assignment);
 				periodRoomRelation.remove(periodAndCourseRoom.getKey());
 			}
 		});
+		return assignments;
 	}
 	
 	public static Map<Period, List<Room>> getPeriods(Integer day, Integer timeslots, List<Room> rooms) {

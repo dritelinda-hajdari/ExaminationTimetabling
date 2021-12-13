@@ -1,6 +1,7 @@
 package com.timetabling.app.util;
 
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 
 import org.json.simple.parser.JSONParser;
@@ -28,7 +29,7 @@ public class JSONUtils {
 		if (obj != null) {
 			ObjectMapper mapper = new ObjectMapper();
 			try {
-				return mapper.writeValueAsString(obj);
+				return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
 			} catch (IOException e) {
 				 e.printStackTrace();
 			}
@@ -46,5 +47,16 @@ public class JSONUtils {
             e.printStackTrace();
         }
         return null;
+	}
+	
+	public static void saveFile(String object, String fileName) {
+		try (FileWriter file = new FileWriter(fileName)) {
+            file.write(object);
+            System.out.println("Successfully Copied JSON Object to File...");
+            file.flush();
+            file.close();
+        } catch(Exception e){
+            System.out.println(e);
+        }
 	}
 }
