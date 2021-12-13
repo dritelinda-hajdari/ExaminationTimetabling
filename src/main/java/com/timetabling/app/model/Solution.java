@@ -56,12 +56,14 @@ public class Solution {
 		List<Event> secondEvents = secondAssignment.getEvents();
 		Event secondEvent = secondAssignment.getEvents().get(0);
 		Event firstEvent = firstAssignment.getEvents().get(0);
-		secondEvent.setPeriod(firstEvent.getPeriod());
-		firstEvent.setPeriod(secondEvent.getPeriod());
-		firstEvents.remove(0);
-		secondEvents.remove(0);
-		firstEvents.add(firstEvent);
-		secondEvents.add(secondEvent);
-		this.setAssignment(assignments);
+		if(!firstEvents.isEmpty() && !secondEvents.isEmpty()) {
+			secondEvent.setPeriod(firstEvent.getPeriod());
+			firstEvent.setPeriod(secondEvent.getPeriod());
+			firstEvents.remove(0);
+			secondEvents.remove(0);
+			firstEvents.add(firstEvent);
+			secondEvents.add(secondEvent);
+			this.setAssignment(assignments);
+		}
 	}
 }
