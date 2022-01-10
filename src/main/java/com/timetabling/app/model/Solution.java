@@ -72,15 +72,15 @@ public class Solution {
 		Assignment secondAssignment = this.assignments.get(randomGenerator.nextInt(this.assignments.size()));
 		List<Event> firstEvents = firstAssignment.getEvents();
 		List<Event> secondEvents = secondAssignment.getEvents();
-		Event secondEvent = secondAssignment.getEvents().get(0);
-		Event firstEvent = firstAssignment.getEvents().get(0);
+		Event secondEvent = secondAssignment.getEvents().isEmpty() ? null : secondAssignment.getEvents().get(0);
+		Event firstEvent = firstAssignment.getEvents().isEmpty() ? null : firstAssignment.getEvents().get(0);
 		if(!firstEvents.isEmpty() && !secondEvents.isEmpty()) {
-			secondEvent.setPeriod(firstEvent.getPeriod());
-			firstEvent.setPeriod(secondEvent.getPeriod());
-			firstEvents.remove(0);
-			secondEvents.remove(0);
-			firstEvents.add(firstEvent);
-			secondEvents.add(secondEvent);
+			String firstEventPeriod = firstEvent.getPeriod();
+			String secondEventPeriod = secondEvent.getPeriod();
+			secondEvent.setPeriod(firstEventPeriod);
+			firstEvent.setPeriod(secondEventPeriod);
+			firstEvents.set(0, firstEvent);
+			secondEvents.set(0, secondEvent);
 			this.setAssignment(assignments);
 		}
 	}

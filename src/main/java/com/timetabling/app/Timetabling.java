@@ -39,7 +39,7 @@ public class Timetabling {
 		List<Course> courses = inst.getCourses();
 		List<Room> rooms = inst.getRooms();
 		List<Curricula> curriculas = inst.getCurricula();
-		//generate componenets, evapuration constant (0 < x < 1), phoremons 
+		//generate componnets, evaporation constant (0 < x < 1), pheromones 
 		Random rand = new Random(); 
 		int evaporation = rand.nextInt(1);
 		int initializePheromoneValue = 0;
@@ -66,6 +66,7 @@ public class Timetabling {
 				System.out.println(JSONUtils.convert(solution));
 				if(!assignments.isEmpty()) {
 					solution.mutation(inst);
+					solution.swap();
 				}
 				if(best == null) {
 					best = solution;
@@ -73,9 +74,7 @@ public class Timetabling {
 					best = solution;
 				}
 				solutions.add(solution);
-				for (int j = 0; j < pheromones.length; j++) {
-					pheromones[i] = (1 - evaporation) * pheromones[i];
-				}
+				pheromones = updatePheromones(evaporation, pheromones, i);
 				for (int j = 0; j < solutions.size(); j++) {
 					int[] componentsOfCurrentSolution = solutions.get(j).getComponents();
 					for (int j2 = 0; j2 < components.length; j2++) {
@@ -89,6 +88,13 @@ public class Timetabling {
 			repeat++;
 		}
 		JSONUtils.saveFile(JSONUtils.convert(best), "Assignments.json");
+	}
+
+	private static int[] updatePheromones(int evaporation, int[] pheromones, int i) {
+		for (int j = 0; j < pheromones.length; j++) {
+			pheromones[i] = (1 - evaporation) * pheromones[i];
+		}
+		return pheromones;
 	}
 	
 	 public static boolean contains(final int[] arr, final int key) {
