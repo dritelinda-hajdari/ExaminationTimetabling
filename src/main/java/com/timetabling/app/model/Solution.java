@@ -10,7 +10,6 @@ public class Solution {
 	private Random randomGenerator;
 	private List<Assignment> assignments;
 	private int cost;
-	private int[] components; 
 
 	public List<Assignment> getAssignment() {
 		return assignments;
@@ -26,25 +25,15 @@ public class Solution {
 	public void setCost(int cost) {
 		this.cost = cost;
 	} 
-	
-	public int[] getComponents() {
-		return components;
-	}
-
-	public void setComponents(int[] components) {
-		this.components = components;
-	}
 
 	public Solution(Builder builder) {
 		this.assignments = builder.assignments;
 		this.cost = builder.cost;
-		this.components = builder.components;
 	}
 	
 	public static class Builder {
 		private List<Assignment> assignments;
 		private int cost;
-		private int[] components;
 		
 		public Builder assignments(List<Assignment> assignments) {
 			this.assignments = assignments;
@@ -56,17 +45,12 @@ public class Solution {
 			return this;
 		}
 		
-		public Builder components(int [] components) {
-			this.components = components;
-			return this;
-		}
-		
 		public Solution build() {
 			return new Solution(this);
 		}
 	}
 	
-	public void swap() {
+	public List<Assignment> swap() {
 		randomGenerator = new Random();
 		Assignment firstAssignment = this.assignments.get(randomGenerator.nextInt(this.assignments.size()));
 		Assignment secondAssignment = this.assignments.get(randomGenerator.nextInt(this.assignments.size()));
@@ -83,9 +67,10 @@ public class Solution {
 			secondEvents.set(0, secondEvent);
 			this.setAssignment(assignments);
 		}
+		return assignments;
 	}
 	
-	public void mutation(Instance inst) {
+	public List<Assignment> mutation(Instance inst) {
 		randomGenerator = new Random();
 		Assignment firstAssignment = this.assignments.get(randomGenerator.nextInt(this.assignments.size()));
 		Event firstEvent = firstAssignment.getEvents().get(0);
@@ -98,5 +83,6 @@ public class Solution {
 			}
 			this.setAssignment(assignments);
 		}
+		return assignments;
 	}
 }

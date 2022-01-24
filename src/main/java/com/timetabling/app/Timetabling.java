@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Random;
 import java.util.stream.Collectors;
 
 import org.json.simple.parser.ParseException;
@@ -35,95 +34,66 @@ public class Timetabling {
 	private static Solution best = null;
 	
 	public static void main(String[] args) throws ParseException {
-		Instance inst =  JSONUtils.convert(JSONUtils.getFileData("D1-1-16.json"), new TypeReference<Instance>(){});
+		Instance inst =  JSONUtils.convert(JSONUtils.getFileData("D1-2-16.json"), new TypeReference<Instance>(){});
 		List<Course> courses = inst.getCourses();
 		List<Room> rooms = inst.getRooms();
 		List<Curricula> curriculas = inst.getCurricula();
-		//generate componnets, evaporation constant (0 < x < 1), pheromones 
-		Random rand = new Random(); 
-		int evaporation = rand.nextInt(1);
-		int initializePheromoneValue = 0;
-		int numberOfTrails = 10;
-		int[] pheromones = initializePheromones(numberOfTrails, initializePheromoneValue);
-		int[] components = generateDummyComponents();
+		List<Solution> tabuList = new ArrayList<Solution>();
+		int numberOfTweak = 5;
+		
+		Solution solution = generateSolution(inst, courses, rooms, curriculas);
+		calculateCost(solution, inst);
+		best = solution;
+		int tabuListLength = 10;
+		tabuList.add(solution);
 		int repeat = 0;
-		while(repeat < 5) {
-			List<Solution> solutions = new ArrayList<Solution>();
-			for (int i = 0; i < 10; i++) {
-				int[] componentsOfSolution = getRandomSolutionComponents(components);
-				List<Assignment> assignments = new ArrayList<>();
-				List<Exam> exams = new ArrayList<Exam>();
-				periodRoomRelation = getPeriods(inst.getPeriods(), inst.getSlotsPerDay(), rooms);
-				curriculas.stream().forEach(curricula -> {
-					List<String> primaryCourses = curricula.getPrimaryCourses();
-					List<String> secondaryCourses = curricula.getSecondaryCourses();
-					checkingConstraints(inst, courses, exams, curricula, primaryCourses, assignments, inst.getPrimaryPrimaryDistance());
-					checkingConstraints(inst, courses, exams, curricula, secondaryCourses, assignments, inst.getPrimarySecondaryDistance());
-				});
-				Solution solution = new Solution.Builder().assignments(assignments).cost(cost).components(componentsOfSolution).build();
-				//check components and best solution 
-				
-				System.out.println(JSONUtils.convert(solution));
-				if(!assignments.isEmpty()) {
-					solution.mutation(inst);
-					solution.swap();
-				}
-				if(best == null) {
-					best = solution;
-				} else if (best.getCost() <= solution.getCost()) {
-					best = solution;
-				}
-				solutions.add(solution);
-				pheromones = updatePheromones(evaporation, pheromones, i);
-				for (int j = 0; j < solutions.size(); j++) {
-					int[] componentsOfCurrentSolution = solutions.get(j).getComponents();
-					for (int j2 = 0; j2 < components.length; j2++) {
-						if(contains(componentsOfCurrentSolution, components[j2])) {
-							pheromones[j2] = pheromones[j2] + solutions.get(j).getCost();
-						}
-					}
+		while(repeat < 50) {
+			Solution R;
+			if(tabuList.size() > tabuListLength) {
+				tabuList.remove(0);
+			}
+			cost = 0;
+			R = new Solution.Builder().assignments(applyTweaks(solution, inst)).cost(cost).build();
+			calculateCost(R, inst);
+			System.out.println(R.getCost());
+			for (int i = 0; i < numberOfTweak; i++) {
+				cost = 0;
+				//Apply operators mutation or swap or crossover:
+				Solution W = new Solution.Builder().assignments(applyTweaks(solution, inst)).cost(cost).build();
+				calculateCost(W, inst);
+				System.out.println(W.getCost());
+				if(!tabuList.contains(W) && (W.getCost() > R.getCost() || tabuList.contains(R))) {
+					R = W;
 				}
 				cost = 0;
+			}
+			if(!tabuList.contains(R)) {
+				solution = R;
+				tabuList.add(R);
+			}
+			if(solution.getCost() >= best.getCost()) {
+				best = solution;
 			}
 			repeat++;
 		}
 		JSONUtils.saveFile(JSONUtils.convert(best), "Assignments.json");
 	}
 
-	private static int[] updatePheromones(int evaporation, int[] pheromones, int i) {
-		for (int j = 0; j < pheromones.length; j++) {
-			pheromones[i] = (1 - evaporation) * pheromones[i];
-		}
-		return pheromones;
+	private static Solution generateSolution(Instance inst, List<Course> courses, List<Room> rooms,
+			List<Curricula> curriculas) {
+		List<Assignment> assignments = new ArrayList<>();
+		List<Exam> exams = new ArrayList<Exam>();
+		periodRoomRelation = getPeriods(inst.getPeriods(), inst.getSlotsPerDay(), rooms);
+		curriculas.stream().forEach(curricula -> {
+			checkingConstraints(inst, courses, exams, curricula, curricula.getPrimaryCourses(), assignments, inst.getPrimaryPrimaryDistance());
+			checkingConstraints(inst, courses, exams, curricula, curricula.getSecondaryCourses(), assignments, inst.getPrimarySecondaryDistance());
+		});
+		return new Solution.Builder().assignments(assignments).cost(cost).build();
 	}
 	
-	 public static boolean contains(final int[] arr, final int key) {
-	        return Arrays.stream(arr).anyMatch(i -> i == key);
-	    }
-
-	private static int[] generateDummyComponents() {
-		Random rand = new Random(); 
-		return new int[] {rand.nextInt(25),rand.nextInt(25),rand.nextInt(25),rand.nextInt(25),rand.nextInt(25)};
-	}
-	
-	private static int[] initializePheromones(int numberOfTails, int initializePheromoneValue) {
-		int[] pheromones = new int[numberOfTails];
-		for (int i = 0; i < pheromones.length; i++) {
-			pheromones[i] = initializePheromoneValue;
-		}
-		return pheromones;
-	}
-	
-	private static int[] getRandomSolutionComponents(int [] components) {
-		Random rand = new Random(); 
-		List<Integer> intList = new ArrayList<Integer>(components.length);
-		for (int i : components)
-		{
-		    intList.add(i);
-		}
-		Collections.shuffle(intList);
-		List<Integer> comp = intList.subList(0,rand.nextInt(components.length));
-		return comp.stream().mapToInt(Integer::intValue).toArray();
+	private static List<Assignment> applyTweaks(Solution solution, Instance inst) {
+		solution.swap();
+		return solution.mutation(inst);
 	}
 
 	private static List<Assignment> checkingConstraints(Instance inst, List<Course> courses, List<Exam> exams, Curricula curricula,
@@ -138,10 +108,17 @@ public class Timetabling {
 							.period(periodAndCourseRoom.getKey()).curriculum(curricula.getCurriculum()).build();
 					exams.add(exam);
 					List<Event> events = new ArrayList<>();
-					selectedPeriod.stream().forEach(period -> {
-						Event event = new Event.Builder().period(periodAndCourseRoom.getKey().getId()).room(period.getRoom()).build();
+					if(selectedPeriod.isEmpty()) {
+						Event event = new Event.Builder().period(periodAndCourseRoom.getKey().getId()).periodDay(periodAndCourseRoom.getKey().getDay()).
+								periodTimeslot(periodAndCourseRoom.getKey().getTimeslot()).room("").build();
 						events.add(event);
-					});
+					} else {
+						selectedPeriod.stream().forEach(period -> {
+							Event event = new Event.Builder().period(periodAndCourseRoom.getKey().getId()).periodDay(periodAndCourseRoom.getKey().getDay()).
+									periodTimeslot(periodAndCourseRoom.getKey().getTimeslot()).room(period.getRoom()).build();
+							events.add(event);
+						});
+					}
 					Assignment assignment = new Assignment.Builder().course(exam.getCourse().getCourse())
 							.events(events).build();
 					assignments.add(assignment);
@@ -170,9 +147,10 @@ public class Timetabling {
 		 Map<Period, List<Room>> periodOfRooms = periodRoomRelation.entrySet().stream().filter(e -> CollectionUtils.containsAny(e.getValue(), rooms))
 				 .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
 		 if(exams.isEmpty()) {
-			 return periodOfRooms.entrySet().iterator().next();
+			 return periodOfRooms.isEmpty() ? periodRoomRelation.entrySet().iterator().next() : periodOfRooms.entrySet().iterator().next();
 		 } else {
-			Entry<Period, List<Room>> softConstraintRoomPeriod = checkPeriodSoftConstraint(periodOfRooms, exams, curricula, course, courses, distance);
+			Map<Period, List<Room>> availablePeriodOfRooms = periodOfRooms.isEmpty() ? periodRoomRelation : periodOfRooms;
+			Entry<Period, List<Room>> softConstraintRoomPeriod = checkPeriodSoftConstraint(availablePeriodOfRooms, exams, curricula, course, courses, distance);
 			if(softConstraintRoomPeriod != null) {
 				return softConstraintRoomPeriod;
 			}
@@ -183,7 +161,8 @@ public class Timetabling {
 		}
 	}
 	
-	public static Entry<Period, List<Room>> checkPeriodSoftConstraint(Map<Period, List<Room>> periodOfRooms, List<Exam> exams, Curricula curricula, Course course, List<String> courses, BigDecimal distance) {
+	public static Entry<Period, List<Room>> checkPeriodSoftConstraint(Map<Period, List<Room>> periodOfRooms, List<Exam> exams, Curricula curricula, 
+			Course course, List<String> courses, BigDecimal distance) {
 		List<String> allCurriculumCourses = new ArrayList<String>(curricula.getPrimaryCourses());
 		allCurriculumCourses.addAll(curricula.getSecondaryCourses());
 		List<Exam> addedCurriculumCourses = exams.stream().filter(exam -> allCurriculumCourses.contains(exam.getCourse().getCourse())).collect(Collectors.toList());
@@ -192,14 +171,12 @@ public class Timetabling {
 				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		Entry<Period, List<Room>> periodOfRoom = checkCourseDistanceSoftConstraint(availablePeriodOfRooms, exams, courses, course, distance);
 		if(periodOfRoom != null) {
-			cost = cost + 2;
 			return periodOfRoom;
 		}
 		Optional<Entry<Period, List<Room>>> periodOfRoomSelected = periodOfRooms.entrySet().stream().filter(
 				e -> addedCurriculumCourses.stream().anyMatch(ex -> !ex.getCourse().getTeacher().equals(course.getTeacher()) && !ex.getPeriod().equals(e.getKey())))
 				.findFirst();
 		if(periodOfRoomSelected.isPresent()) {
-			cost = cost + 1;
 			return periodOfRoomSelected.get();
 		}
 		return null;
@@ -214,5 +191,48 @@ public class Timetabling {
 		BigDecimal lastAddedExamDayPeriod = new BigDecimal (addedCourses.get(0).getPeriod().getDay());
 		Optional<Entry<Period, List<Room>>> periodOfRoomSelected = periodOfRooms.entrySet().stream().filter(e -> new BigDecimal(e.getKey().getDay()).compareTo(lastAddedExamDayPeriod.add(distance)) > 1 ).findFirst();
 		return periodOfRoomSelected.isPresent() ? periodOfRoomSelected.get() : null;
+	}
+	
+	public static void calculateCost(Solution solution, Instance inst) {
+		Map<String, List<String>> periodOfCourses = new HashMap<String, List<String>>();
+		solution.getAssignment().forEach(assignment -> {
+			List<Event> assignmentEvents = assignment.getEvents();
+			assignmentEvents.stream().forEach(event -> {
+				if(periodOfCourses.containsKey(event.getPeriod())) {
+					List<String> courses = periodOfCourses.get(event.getPeriod());
+					if(!courses.contains(assignment.getCourse())) {
+						courses.add(assignment.getCourse());
+					}
+				} else {
+					periodOfCourses.put(event.getPeriod(), new ArrayList<>(Arrays.asList(assignment.getCourse())));
+				}
+			});
+		});
+		
+		inst.getCurricula().stream().forEach(curricula -> {
+			List<String> curriculaCourses = curricula.getPrimaryCourses();
+			//Check second soft constraint 
+			checkSecondConstraintCost(solution, inst, curriculaCourses);
+			checkSecondConstraintCost(solution, inst, curricula.getSecondaryCourses());
+			curriculaCourses.addAll(curricula.getSecondaryCourses());
+			periodOfCourses.entrySet().stream().forEach(courses-> {
+				if(!curriculaCourses.containsAll(courses.getValue())) {
+					cost = cost + courses.getValue().size();
+				}
+			});
+		});
+		solution.setCost(cost);
+		
+	}
+
+	private static void checkSecondConstraintCost(Solution solution, Instance inst, List<String> curriculaCourses) {
+		List<Assignment> filteredAssignments = solution.getAssignment().stream().filter(a -> curriculaCourses.contains(a.getCourse())).collect(Collectors.toList());
+		Collections.sort(filteredAssignments, Comparator.comparing(a -> ((Assignment) a).getEvents().get(0).getPeriodDay()).reversed());
+		for (int i = 0; i < filteredAssignments.size()-1; i++) {
+			if(filteredAssignments.get(i).getEvents().get(0).getPeriodDay() + inst.getPrimaryPrimaryDistance().intValue() 
+			>=  filteredAssignments.get(i+1).getEvents().get(0).getPeriodDay()) {
+				cost = cost +1;
+			}
+		}
 	}
 }
